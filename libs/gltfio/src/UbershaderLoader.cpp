@@ -128,6 +128,26 @@ MaterialInstance* UbershaderLoader::createMaterialInstance(MaterialKey* config, 
     mi->setParameter("normalUvMatrix", identity);
     mi->setParameter("occlusionUvMatrix", identity);
     mi->setParameter("emissiveUvMatrix", identity);
+
+    // Some WebGL implementations emit a warning at draw call time if the shader declares a sampler
+    // that has not been bound to a texture, even if the texture lookup is conditional. Therefore we
+    // need to ensure that every sampler parameter is bound to a dummy texture, even if it is never
+    // actually sampled from.
+    #ifdef EMSCRIPTEN
+    TextureSampler sampler;
+    unsigned char texels[4] = {};
+    Texture* tex = Texture::Builder().width(1).height(1).format(Texture::InternalFormat::RGBA8)
+            .build(*mEngine);
+    Texture::PixelBufferDescriptor pbd(texels, sizeof(texels), Texture::Format::RGBA,
+            Texture::Type::UBYTE);
+    tex->setImage(*mEngine, 0, std::move(pbd));
+    mi->setParameter("normalMap", tex, sampler);
+    mi->setParameter("baseColorMap", tex, sampler);
+    mi->setParameter("metallicRoughnessMap", tex, sampler);
+    mi->setParameter("occlusionMap", tex, sampler);
+    mi->setParameter("emissiveMap", tex, sampler);
+    #endif
+
     return mi;
 }
 
